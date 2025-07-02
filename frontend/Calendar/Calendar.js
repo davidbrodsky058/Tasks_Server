@@ -13,6 +13,7 @@ const prevButton = document.getElementById("prev");
 const nextButton = document.getElementById("next"); 
 const calendarBody = document.getElementById("calendar-body");
 const toggleViewButton = document.getElementById("toggle-view");
+const googleSyncButton = document.getElementById("google-sync");
 
 function loadEvents(){
     const events = localStorage.getItem("calendarEvents");
@@ -277,6 +278,56 @@ nextButton.addEventListener("click", () => {
   } else {
     currentWeekStart.setDate(currentWeekStart.getDate() + 7);
     animateCalendarChange(renderWeek, currentWeekStart);
+  }
+});
+
+googleSyncButton.addEventListener("click", () => {
+  const events = loadEvents();
+  const eventKeys = Object.keys(events);
+  if (eventKeys.length === 0) {
+    alert("No events to sync.");
+    return;
+  }
+
+  // Offer user to export all events as ICS or open Google Calendar event links
+  if (confirm("Export all events as ICS file for Google Calendar? (Cancel for individual event links)")) {
+    // ICS export
+    let ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Your Calendar//EN"
+    ];
+    eventKeys.forEach(key => {
+      const [year, month, day] = key.split("-");
+      const dt = `${year}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`;
+      ics.push("BEGIN:VEVENT");
+      ics.push(`DTSTART;VALUE=DATE:${dt}`);
+      ics.push(`SUMMARY:${events[key]}`);
+      ics.push("END:VEVENT");
+    });
+    ics.push("END:VCALENDAR");
+    const blob = new Blob([ics.join("\r\n")], { type: "text/calendar" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "calendar-events.ics";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } else {
+    // Show Google Calendar links for each event
+    let links = "";
+    eventKeys.forEach(key => {
+      const [year, month, day] = key.split("-");
+      const start = `${year}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`;
+      const end = `${year}${String(month).padStart(2, "0")}${String(Number(day)+1).padStart(2, "0")}`;
+      const text = encodeURIComponent(events[key]);
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${start}/${end}`;
+      links += `<a href="${url}" target="_blank">${events[key]} (${key})</a><br>`;
+    });
+    const win = window.open("", "_blank");
+    win.document.write(`<h2>Click to add each event to Google Calendar:</h2>${links}`);
   }
 });
 
