@@ -22,6 +22,33 @@ function saveEvents(events) {
     localStorage.setItem("calendarEvents", JSON.stringify(events));
 }
 
+// Fetch Hebrew date and holidays for a given Gregorian date using Hebcal API
+async function getHebrewInfo(year, month, day) {
+  // Hebcal API expects month 1-12, so month+1
+  const url = `https://www.hebcal.com/converter?cfg=json&gy=${year}&gm=${month + 1}&gd=${day}&g2h=1`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    // Extract Hebrew day and month (e.g., "1 Tishrei 5785" -> ["1", "Tishrei", "5785"])
+    let hebrewDay = "", hebrewMonth = "", hebrewYear = "";
+    if (data.hebrew) {
+      const parts = data.hebrew.split(" ");
+      if (parts.length >= 3) {
+        hebrewDay = parts[0];
+        hebrewMonth = parts[1];
+        hebrewYear = parts[2];
+      }
+    }
+    return {
+      hebrewDay,
+      hebrewMonth,
+      holidays: (data.events || []).filter(e => e !== "Shabbat" && !e.startsWith("Parashat"))
+    };
+  } catch (e) {
+    return { hebrewDay: "", hebrewMonth: "", holidays: [] };
+  }
+}
+
 function renderCalendar(month, year) {
   calendarBody.innerHTML = "";
   calendarHeader.textContent = `${months[month]} ${year}`;
@@ -29,10 +56,10 @@ function renderCalendar(month, year) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const events = loadEvents(); // Load events once per render
+  const events = loadEvents();
 
   let row = document.createElement("tr");
-  
+
   for (let i = 0; i < firstDay; i++) {
     row.appendChild(document.createElement("td"));
   }
@@ -42,7 +69,7 @@ function renderCalendar(month, year) {
       calendarBody.appendChild(row);
       row = document.createElement("tr");
     }
-    
+
     const cell = document.createElement("td");
     if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
       cell.classList.add("today");
@@ -55,37 +82,58 @@ function renderCalendar(month, year) {
       eventBox.textContent = events[eventKey];
       cell.appendChild(eventBox);
     }
-    cell.addEventListener("click", () => {
-        const events = loadEvents();
-        const eventText = prompt("Enter event for " + eventKey, events[eventKey] || "");
-        if (eventText !== null) {
-            const existingBox = cell.querySelector('.event-box');
-            if (existingBox) {
-                cell.removeChild(existingBox);
-            }
-            if (eventText.trim() === "") {
-                if (events[eventKey]) {
-                    delete events[eventKey];
-                    saveEvents(events);
-                    renderCalendar(currentMonth, currentYear);
-                }
-            } else {
-                events[eventKey] = eventText;
-                saveEvents(events);
-                const eventBox = document.createElement("div");
-                eventBox.className = "event-box";
-                eventBox.textContent = eventText;
-                cell.appendChild(eventBox);
-            }
-        }
+
+    // Add only Hebrew date (day + Jewish month) and holidays asynchronously
+    (async () => {
+      const info = await getHebrewInfo(year, month, day);
+      if (info.hebrewDay && info.hebrewMonth) {
+        const hebrewSpan = document.createElement("div");
+        hebrewSpan.className = "hebrew-date";
+        hebrewSpan.textContent = `${info.hebrewDay} ${info.hebrewMonth}`;
+        cell.appendChild(hebrewSpan);
+      }
+      if (info.holidays && info.holidays.length > 0) {
+        info.holidays.forEach(event => {
+          const eventDiv = document.createElement("div");
+          eventDiv.className = "hebrew-holiday";
+          eventDiv.textContent = event;
+          cell.appendChild(eventDiv);
         });
+      }
+    })();
+
+    cell.addEventListener("click", () => {
+      const events = loadEvents();
+      const eventText = prompt("Enter event for " + eventKey, events[eventKey] || "");
+      if (eventText !== null) {
+        const existingBox = cell.querySelector('.event-box');
+        if (existingBox) {
+          cell.removeChild(existingBox);
+        }
+        if (eventText.trim() === "") {
+          if (events[eventKey]) {
+            delete events[eventKey];
+            saveEvents(events);
+            renderCalendar(currentMonth, currentYear);
+          }
+        } else {
+          events[eventKey] = eventText;
+          saveEvents(events);
+          const eventBox = document.createElement("div");
+          eventBox.className = "event-box added";
+          eventBox.textContent = eventText;
+          cell.appendChild(eventBox);
+          setTimeout(() => eventBox.classList.remove("added"), 800);
+        }
+      }
+    });
     row.appendChild(cell);
   }
 
   while (row.children.length < 7) {
     row.appendChild(document.createElement("td"));
   }
-  
+
   calendarBody.appendChild(row);
 }
 
@@ -128,6 +176,26 @@ function renderWeek(weekStartDate) {
       eventBox.textContent = events[eventKey];
       cell.appendChild(eventBox);
     }
+
+    // Add only Hebrew date (day + Jewish month) and holidays asynchronously
+    (async () => {
+      const info = await getHebrewInfo(d.getFullYear(), d.getMonth(), d.getDate());
+      if (info.hebrewDay && info.hebrewMonth) {
+        const hebrewSpan = document.createElement("div");
+        hebrewSpan.className = "hebrew-date";
+        hebrewSpan.textContent = `${info.hebrewDay} ${info.hebrewMonth}`;
+        cell.appendChild(hebrewSpan);
+      }
+      if (info.holidays && info.holidays.length > 0) {
+        info.holidays.forEach(event => {
+          const eventDiv = document.createElement("div");
+          eventDiv.className = "hebrew-holiday";
+          eventDiv.textContent = event;
+          cell.appendChild(eventDiv);
+        });
+      }
+    })();
+
     cell.addEventListener("click", () => {
       const events = loadEvents();
       const eventText = prompt("Enter event for " + eventKey, events[eventKey] || "");
@@ -146,9 +214,10 @@ function renderWeek(weekStartDate) {
           events[eventKey] = eventText;
           saveEvents(events);
           const eventBox = document.createElement("div");
-          eventBox.className = "event-box";
+          eventBox.className = "event-box added";
           eventBox.textContent = eventText;
           cell.appendChild(eventBox);
+          setTimeout(() => eventBox.classList.remove("added"), 800);
         }
       }
     });
@@ -157,16 +226,28 @@ function renderWeek(weekStartDate) {
   calendarBody.appendChild(row);
 }
 
+function animateCalendarChange(renderFn, ...args) {
+  calendarBody.classList.add('calendar-fade-out');
+  setTimeout(() => {
+    renderFn(...args);
+    calendarBody.classList.remove('calendar-fade-out');
+    calendarBody.classList.add('calendar-fade-in');
+    setTimeout(() => {
+      calendarBody.classList.remove('calendar-fade-in');
+    }, 300);
+  }, 300);
+}
+
 toggleViewButton.addEventListener("click", () => {
   if (viewMode === "month") {
     viewMode = "week";
     toggleViewButton.textContent = "Month View";
     currentWeekStart = getWeekStart(new Date(currentYear, currentMonth, today.getDate()));
-    renderWeek(currentWeekStart);
+    animateCalendarChange(renderWeek, currentWeekStart);
   } else {
     viewMode = "month";
     toggleViewButton.textContent = "Week View";
-    renderCalendar(currentMonth, currentYear);
+    animateCalendarChange(renderCalendar, currentMonth, currentYear);
   }
 });
 
@@ -178,10 +259,10 @@ prevButton.addEventListener("click", () => {
     } else {
       currentMonth--;
     }
-    renderCalendar(currentMonth, currentYear);
+    animateCalendarChange(renderCalendar, currentMonth, currentYear);
   } else {
     currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-    renderWeek(currentWeekStart);
+    animateCalendarChange(renderWeek, currentWeekStart);
   }
 });
 nextButton.addEventListener("click", () => {
@@ -192,10 +273,10 @@ nextButton.addEventListener("click", () => {
     } else {
       currentMonth++;
     }
-    renderCalendar(currentMonth, currentYear);
+    animateCalendarChange(renderCalendar, currentMonth, currentYear);
   } else {
     currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-    renderWeek(currentWeekStart);
+    animateCalendarChange(renderWeek, currentWeekStart);
   }
 });
 
