@@ -37,4 +37,4 @@ Core technologies:
 * **node-cron** for recurring tasks
 * **ownerId/sharedWith** for task authorization
 
-here is a link to all postman requests to check the server https://davidbrodsky.postman.co/workspace/David-Brodsky's-Workspace~211d06e1-f776-4928-8f89-58e160b8220e/collection/44579502-8f999695-08b9-4a2c-9f14-15cd4b00509a?action=share&source=copy-link&creator=44579502
+here is a link to all postman requests to check the server [https://davidbrodsky.postman.co/workspace/David-Brodsky's-Workspace~211d06e1-f776-4928-8f89-58e160b8220e/collection/44579502-8f999695-08b9-4a2c-9f14-15cd4b00509a?action=share&source=copy-link&creator=44579502](https://davidbrodsky.postman.co/workspace/David-Brodsky's-Workspace~211d06e1-f776-4928-8f89-58e160b8220e/collection/44579502-8f999695-08b9-4a2c-9f14-15cd4b00509a?action=share&creator=44579502)
